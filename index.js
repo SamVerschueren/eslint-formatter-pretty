@@ -16,60 +16,84 @@ module.exports = function (results) {
 	var maxColumnWidth = 0;
 	var maxMessageWidth = 0;
 
-	results.forEach(function (result) {
-		var messages = result.messages;
+	results
+		.sort(function (a, b) {
+			if (a.errorCount === 0 && b.errorCount > 0) {
+				return -1;
+			}
 
-		if (messages.length === 0) {
-			return;
-		}
+			if (a.errorCount > 0 && b.errorCount === 0) {
+				return 1;
+			}
 
-		errorCount += result.errorCount;
-		warningCount += result.warningCount;
+			return 0;
+		})
+		.forEach(function (result) {
+			var messages = result.messages;
 
-		if (lines.length !== 0) {
-			lines.push({type: 'separator'});
-		}
+			if (messages.length === 0) {
+				return;
+			}
 
-		var filePath = result.filePath;
+			errorCount += result.errorCount;
+			warningCount += result.warningCount;
 
-		lines.push({
-			type: 'header',
-			filePath: filePath,
-			relativeFilePath: path.relative('.', filePath),
-			firstLineCol: messages[0].line + ':' + messages[0].column
-		});
+			if (lines.length !== 0) {
+				lines.push({type: 'separator'});
+			}
 
-		messages.forEach(function (x) {
-			var msg = x.message;
-
-			// stylize inline code blocks
-			msg = msg.replace(/\B`(.*?)`\B|\B'(.*?)'\B/g, function (m, p1, p2) {
-				return chalk.bold(p1 || p2);
-			});
-
-			var line = String(x.line || 0);
-			var column = String(x.column || 0);
-			var lineWidth = stringWidth(line);
-			var columnWidth = stringWidth(column);
-			var messageWidth = stringWidth(msg);
-
-			maxLineWidth = Math.max(lineWidth, maxLineWidth);
-			maxColumnWidth = Math.max(columnWidth, maxColumnWidth);
-			maxMessageWidth = Math.max(messageWidth, maxMessageWidth);
+			var filePath = result.filePath;
 
 			lines.push({
-				type: 'message',
-				severity: (x.fatal || x.severity === 2) ? 'error' : 'warning',
-				line: line,
-				lineWidth: lineWidth,
-				column: column,
-				columnWidth: columnWidth,
-				message: msg,
-				messageWidth: messageWidth,
-				ruleId: x.ruleId || ''
+				type: 'header',
+				filePath: filePath,
+				relativeFilePath: path.relative('.', filePath),
+				firstLineCol: messages[0].line + ':' + messages[0].column
 			});
+
+			messages
+				.sort(function (a, b) {
+					if ((a.fatal || a.severity === 2) && (!b.fatal || b.severity !== 2)) {
+						return 1;
+					}
+
+					if ((!a.fatal || a.severity !== 2) && (b.fatal || b.severity === 2)) {
+						return -1;
+					}
+
+					return 0;
+				})
+				.forEach(function (x) {
+					var msg = x.message;
+
+					// stylize inline code blocks
+					msg = msg.replace(/\B`(.*?)`\B|\B'(.*?)'\B/g, function (m, p1, p2) {
+						return chalk.bold(p1 || p2);
+					});
+
+					var line = String(x.line || 0);
+					var column = String(x.column || 0);
+					var lineWidth = stringWidth(line);
+					var columnWidth = stringWidth(column);
+					var messageWidth = stringWidth(msg);
+
+					maxLineWidth = Math.max(lineWidth, maxLineWidth);
+					maxColumnWidth = Math.max(columnWidth, maxColumnWidth);
+					maxMessageWidth = Math.max(messageWidth, maxMessageWidth);
+
+					lines.push({
+						type: 'message',
+						severity: (x.fatal || x.severity === 2) ? 'error' : 'warning',
+						line: line,
+						lineWidth: lineWidth,
+						column: column,
+						columnWidth: columnWidth,
+						message: msg,
+						messageWidth: messageWidth,
+						ruleId: x.ruleId || ''
+					});
+				});
 		});
-	});
 
 	var output = '\n';
 
